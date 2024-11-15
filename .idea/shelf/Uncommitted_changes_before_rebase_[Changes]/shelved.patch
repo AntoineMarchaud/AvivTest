@@ -1,0 +1,195 @@
+Index: app/src/main/java/com/amarchaud/lydia/ui/MainActivity.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>package com.amarchaud.lydia.ui\r\n\r\nimport android.os.Bundle\r\nimport androidx.activity.ComponentActivity\r\nimport androidx.activity.compose.setContent\r\nimport androidx.activity.enableEdgeToEdge\r\nimport androidx.navigation.NavType\r\nimport androidx.navigation.compose.NavHost\r\nimport androidx.navigation.compose.composable\r\nimport androidx.navigation.compose.rememberNavController\r\nimport androidx.navigation.navArgument\r\nimport com.amarchaud.lydia.ui.screen.detail.UserDetailComposable\r\nimport com.amarchaud.lydia.ui.screen.mainList.MainListComposable\r\nimport com.amarchaud.lydia.ui.theme.LydiaTheme\r\nimport dagger.hilt.android.AndroidEntryPoint\r\n\r\n@AndroidEntryPoint\r\nclass MainActivity : ComponentActivity() {\r\n\r\n    object MainRoutes {\r\n        const val MAIN = \"main\"\r\n        const val DETAIL = \"detail\"\r\n    }\r\n\r\n    object Routes {\r\n        const val MAIN = MainRoutes.MAIN\r\n        const val DETAIL = MainRoutes.DETAIL +\r\n            \"/{${Extra.USER_LOCAL_ID}}\"\r\n    }\r\n\r\n    object Extra {\r\n        const val USER_LOCAL_ID = \"userLocalId\"\r\n    }\r\n\r\n    override fun onCreate(savedInstanceState: Bundle?) {\r\n        enableEdgeToEdge()\r\n        super.onCreate(savedInstanceState)\r\n\r\n        setContent {\r\n            LydiaTheme {\r\n                val navController = rememberNavController()\r\n                NavHost(\r\n                    navController = navController,\r\n                    startDestination = MainRoutes.MAIN,\r\n                ) {\r\n                    composable(\r\n                        route = Routes.MAIN,\r\n                    ) {\r\n                        MainListComposable(\r\n                            onUserClick = { localId ->\r\n                                navController.navigate(\r\n                                    route = MainRoutes.DETAIL +\r\n                                        \"/$localId\"\r\n                                )\r\n                            }\r\n                        )\r\n                    }\r\n\r\n                    composable(\r\n                        route = Routes.DETAIL,\r\n                        arguments = listOf(\r\n                            navArgument(Extra.USER_LOCAL_ID) {\r\n                                type = NavType.LongType\r\n                                nullable = false\r\n                            },\r\n                        )\r\n                    ) {\r\n                        UserDetailComposable(\r\n                            onBack = {\r\n                                navController.popBackStack()\r\n                            }\r\n                        )\r\n                    }\r\n                }\r\n            }\r\n        }\r\n    }\r\n}
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/app/src/main/java/com/amarchaud/lydia/ui/MainActivity.kt b/app/src/main/java/com/amarchaud/lydia/ui/MainActivity.kt
+--- a/app/src/main/java/com/amarchaud/lydia/ui/MainActivity.kt	(revision 11a078b248ece6957bbcdf2e1bc7cc404ddaa46f)
++++ b/app/src/main/java/com/amarchaud/lydia/ui/MainActivity.kt	(date 1715518639581)
+@@ -4,23 +4,58 @@
+ import androidx.activity.ComponentActivity
+ import androidx.activity.compose.setContent
+ import androidx.activity.enableEdgeToEdge
+-import androidx.navigation.NavType
+ import androidx.navigation.compose.NavHost
+ import androidx.navigation.compose.composable
+ import androidx.navigation.compose.rememberNavController
+-import androidx.navigation.navArgument
+ import com.amarchaud.lydia.ui.screen.detail.UserDetailComposable
+ import com.amarchaud.lydia.ui.screen.mainList.MainListComposable
+ import com.amarchaud.lydia.ui.theme.LydiaTheme
+ import dagger.hilt.android.AndroidEntryPoint
++import kotlinx.serialization.Serializable
+ 
+ @AndroidEntryPoint
+ class MainActivity : ComponentActivity() {
+ 
+-    object MainRoutes {
+-        const val MAIN = "main"
+-        const val DETAIL = "detail"
++    // New way to make Navigation (2.8.0)
++    @Serializable
++    object Home
++
++    @Serializable
++    data class Detail(val id: Long)
++
++    override fun onCreate(savedInstanceState: Bundle?) {
++        enableEdgeToEdge()
++        super.onCreate(savedInstanceState)
++
++        setContent {
++            LydiaTheme {
++                val navController = rememberNavController()
++                NavHost(
++                    navController = navController,
++                    startDestination = Home,
++                ) {
++                    composable<Home> {
++                        MainListComposable(
++                            onUserClick = {
++                                navController.navigate(Detail(it))
++                            }
++                        )
++                    }
++
++                    composable<Detail> {
++                        UserDetailComposable(
++                            onBack = {
++                                navController.popBackStack()
++                            }
++                        )
++                    }
++                }
++            }
++        }
+     }
++
++    /*
++    // Former way in 2.7.7 and before
+ 
+     object Routes {
+         const val MAIN = MainRoutes.MAIN
+@@ -74,5 +109,5 @@
+                 }
+             }
+         }
+-    }
++    }*/
+ }
+\ No newline at end of file
+Index: app/src/main/java/com/amarchaud/lydia/ui/screen/detail/UserDetailViewModel.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>package com.amarchaud.lydia.ui.screen.detail\r\n\r\nimport androidx.lifecycle.SavedStateHandle\r\nimport androidx.lifecycle.ViewModel\r\nimport androidx.lifecycle.viewModelScope\r\nimport com.amarchaud.lydia.domain.usecase.GetUserFromCacheUseCase\r\nimport com.amarchaud.lydia.ui.MainActivity\r\nimport com.amarchaud.lydia.ui.screen.detail.mappers.toDetailUiModel\r\nimport com.amarchaud.lydia.ui.screen.detail.models.UserDetailUiModel\r\nimport dagger.hilt.android.lifecycle.HiltViewModel\r\nimport kotlinx.coroutines.flow.MutableStateFlow\r\nimport kotlinx.coroutines.flow.asStateFlow\r\nimport kotlinx.coroutines.flow.update\r\nimport kotlinx.coroutines.launch\r\nimport javax.inject.Inject\r\n\r\n@HiltViewModel\r\nclass UserDetailViewModel @Inject constructor(\r\n    private val stateHandle: SavedStateHandle,\r\n    private val getUserFromCacheUseCase: GetUserFromCacheUseCase\r\n) : ViewModel() {\r\n\r\n    private val localId =\r\n        stateHandle.get<Long>(MainActivity.Extra.USER_LOCAL_ID) ?: throw NullPointerException(\"localId can't be null\")\r\n\r\n    private val _userDetailUiModel = MutableStateFlow(UserDetailUiModel())\r\n    val userDetailUiModel = _userDetailUiModel.asStateFlow()\r\n\r\n    init {\r\n        viewModelScope.launch {\r\n            getUserFromCacheUseCase.run(localId)?.let { userModel ->\r\n                _userDetailUiModel.update {\r\n                    userModel.toDetailUiModel()\r\n                }\r\n            }\r\n        }\r\n    }\r\n}
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/app/src/main/java/com/amarchaud/lydia/ui/screen/detail/UserDetailViewModel.kt b/app/src/main/java/com/amarchaud/lydia/ui/screen/detail/UserDetailViewModel.kt
+--- a/app/src/main/java/com/amarchaud/lydia/ui/screen/detail/UserDetailViewModel.kt	(revision 11a078b248ece6957bbcdf2e1bc7cc404ddaa46f)
++++ b/app/src/main/java/com/amarchaud/lydia/ui/screen/detail/UserDetailViewModel.kt	(date 1715518639578)
+@@ -20,8 +20,13 @@
+     private val getUserFromCacheUseCase: GetUserFromCacheUseCase
+ ) : ViewModel() {
+ 
++    // new way in navigation 2.8
+     private val localId =
+-        stateHandle.get<Long>(MainActivity.Extra.USER_LOCAL_ID) ?: throw NullPointerException("localId can't be null")
++        stateHandle.get<Long>("id") ?: throw NullPointerException("localId can't be null")
++
++    // former way in navigation 2.7 and before
++    // private val localId =
++       // stateHandle.get<Long>(MainActivity.Extra.USER_LOCAL_ID) ?: throw NullPointerException("localId can't be null")
+ 
+     private val _userDetailUiModel = MutableStateFlow(UserDetailUiModel())
+     val userDetailUiModel = _userDetailUiModel.asStateFlow()
+Index: gradle/libs.versions.toml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>[versions]\r\n\r\n# Plugins\r\nkotlin = \"1.9.23\"\r\nandroid_gradle_plugin = \"8.3.2\"\r\nksp-plugin = \"1.9.23-1.0.20\"\r\n\r\n#Hilt\r\nhilt = \"2.51\"\r\nhiltAndroidX = \"1.2.0\"\r\n\r\n# Ktx\r\nactivity_ktx = \"1.9.0\"\r\ncore_ktx = \"1.13.1\"\r\nfragment_ktx = \"1.7.0\"\r\n\r\n# Compose\r\nactivity_compose = \"1.9.0\"\r\ncompose_compiler = \"1.5.13\"\r\ncompose_bom = \"2024.05.00\"\r\nconstraintlayout_compose = \"1.0.1\"\r\naccompanist = \"0.34.0\"\r\ncompose_paging = \"3.2.1\"\r\n\r\n# Coroutines\r\ncoroutines_version = \"1.7.3\"\r\n\r\n# Navigation\r\nnavigation_version = \"2.7.7\"\r\n\r\n# Others\r\nlottie_version = \"6.4.0\"\r\ncoil = \"2.6.0\"\r\nretrofit_version = \"2.10.0\"\r\nmoshi = \"1.15.1\"\r\nroom = \"2.6.1\"\r\nokhttp = \"4.12.0\"\r\n\r\n[bundles]\r\n\r\ncompose = [\"compose_viewbinding\", \"compose_material\", \"compose_animation\", \"compose_tooling\", \"compose_livedata\",\r\n    \"constraintlayout_compose\", \"activity_compose\", \"compose_paging\"]\r\naccompanist = [\"accompanist_theme\", \"accompanist_uicontroller\", \"accompanist_permissions\", \"accompanist-drawablepainter\"]\r\nnavigation = [\"navigation_compose\", \"navigation_fragment_ktx\", \"navigation_ui_ktx\"]\r\nhilt_androidx = [\"hilt_androidx_navigation_compose\", \"hilt_androidx_navigation_fragment\", \"hilt_androidx_navigation\", \"hilt_androidx_common\"]\r\ntest = [\"junit\", \"testArchCore\", \"kotlinx_coroutines_test\", \"mockito_kotlin\", \"mockito_inline\"]\r\napi = [\"retrofit\", \"retrofitMoshi\", \"okhttp\", \"okhttpLog\", \"moshi\"]\r\nroom = [\"room\", \"roomktx\", \"roomPaging\"]\r\n\r\n[plugins]\r\n\r\n#android\r\ncom-android-application = { id = \"com.android.application\", version.ref = \"android_gradle_plugin\" }\r\ncom-android-library = { id = \"com.android.library\", version.ref = \"android_gradle_plugin\" }\r\n#kotlin\r\norg-jetbrains-kotlin-android = { id = \"org.jetbrains.kotlin.android\", version.ref = \"kotlin\" }\r\norg-jetbrains-kotlin-jvm = { id = \"org.jetbrains.kotlin.jvm\", version.ref = \"kotlin\" }\r\n#hilt\r\ncom-google-dagger-hilt-android = { id = \"com.google.dagger.hilt.android\", version.ref = \"hilt\" }\r\ncom-google-devtools-ksp = { id = \"com.google.devtools.ksp\", version.ref = \"ksp-plugin\" }\r\n\r\n[libraries]\r\n\r\nhilt-android = { module = \"com.google.dagger:hilt-android\", version.ref = \"hilt\" }\r\nhilt_androidx_common = { module = \"androidx.hilt:hilt-common\", version.ref = \"hiltAndroidX\" }\r\nhilt_androidx_navigation = { module = \"androidx.hilt:hilt-navigation\", version.ref = \"hiltAndroidX\" }\r\nhilt_androidx_navigation_fragment = { module = \"androidx.hilt:hilt-navigation-fragment\", version.ref = \"hiltAndroidX\" }\r\nhilt_androidx_navigation_compose = { module = \"androidx.hilt:hilt-navigation-compose\", version.ref = \"hiltAndroidX\" }\r\n\r\ncore_ktx = { module = \"androidx.core:core-ktx\", version.ref = \"core_ktx\" }\r\nfragment_ktx = { module = \"androidx.fragment:fragment-ktx\", version.ref = \"fragment_ktx\" }\r\nactivity_ktx = { module = \"androidx.activity:activity-ktx\", version.ref = \"activity_ktx\" }\r\n\r\nactivity_compose = { module = \"androidx.activity:activity-compose\", version.ref = \"activity_compose\" }\r\ncompose_bom = { module = \"androidx.compose:compose-bom\", version.ref = \"compose_bom\" }\r\ncompose_viewbinding = { module = \"androidx.compose.ui:ui-viewbinding\" }\r\ncompose_material = { module = \"androidx.compose.material:material\" }\r\ncompose_animation = { module = \"androidx.compose.animation:animation\" }\r\ncompose_tooling = { module = \"androidx.compose.ui:ui-tooling\" }\r\ncompose_livedata = { module = \"androidx.compose.runtime:runtime-livedata\" }\r\ncompose_paging = { module = \"androidx.paging:paging-compose\", version.ref = \"compose_paging\" }\r\nconstraintlayout_compose = { module = \"androidx.constraintlayout:constraintlayout-compose\", version.ref = \"constraintlayout_compose\" }\r\n\r\nlottie_compose = { module = \"com.airbnb.android:lottie-compose\", version.ref = \"lottie_version\" }\r\nnavigation_compose = { module = \"androidx.navigation:navigation-compose\", version.ref = \"navigation_version\" }\r\nnavigation_fragment_ktx = { module = \"androidx.navigation:navigation-fragment-ktx\", version.ref = \"navigation_version\" }\r\nnavigation_ui_ktx = { module = \"androidx.navigation:navigation-ui-ktx\", version.ref = \"navigation_version\" }\r\n\r\naccompanist_theme = { module = \"com.google.accompanist:accompanist-appcompat-theme\", version.ref = \"accompanist\" }\r\naccompanist_uicontroller = { module = \"com.google.accompanist:accompanist-systemuicontroller\", version.ref = \"accompanist\" }\r\naccompanist_permissions = { module = \"com.google.accompanist:accompanist-permissions\", version.ref = \"accompanist\" }\r\naccompanist-drawablepainter = { module = \"com.google.accompanist:accompanist-drawablepainter\", version.ref = \"accompanist\" }\r\n\r\nretrofit = { module = \"com.squareup.retrofit2:retrofit\", version.ref = \"retrofit_version\" }\r\nretrofitMoshi = { module = \"com.squareup.retrofit2:converter-moshi\", version.ref = \"retrofit_version\" }\r\nmoshi = { module = \"com.squareup.moshi:moshi-kotlin\", version = \"1.12.0\" }\r\nokhttp = { module = \"com.squareup.okhttp3:okhttp\", version.ref = \"okhttp\" }\r\nokhttpLog = { module = \"com.squareup.okhttp3:logging-interceptor\", version.ref = \"okhttp\" }\r\n\r\nroom = { module = \"androidx.room:room-runtime\", version.ref = \"room\" }\r\nroomPaging = { module = \"androidx.room:room-paging\", version.ref = \"room\" }\r\nroomktx = { module = \"androidx.room:room-ktx\", version.ref = \"room\" }\r\n\r\nosmdroid = { module = 'org.osmdroid:osmdroid-android', version = '6.1.18' }\r\n\r\ncoil = { module = \"io.coil-kt:coil-compose\", version.ref = \"coil\" }\r\n\r\n# for KSP\r\nhiltCompiler = { module = \"com.google.dagger:hilt-android-compiler\", version.ref = \"hilt\" }\r\nmoshiCodeGen = { module = \"com.squareup.moshi:moshi-kotlin-codegen\", version.ref = \"moshi\" }\r\nroomCompiler = { module = \"androidx.room:room-compiler\", version.ref = \"room\" }\r\n\r\njunit = { module = \"junit:junit\", version = \"4.13.2\" }\r\nmockito_kotlin = { module = \"org.mockito.kotlin:mockito-kotlin\", version = \"5.0.0\" }\r\nmockito_inline = { group = \"org.mockito\", name = \"mockito-inline\", version = \"5.2.0\" }\r\ntestArchCore = { module = \"androidx.arch.core:core-testing\", version = \"2.2.0\" }\r\nkotlinx_coroutines_test = { module = \"org.jetbrains.kotlinx:kotlinx-coroutines-test\", version.ref = \"coroutines_version\" }\r\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/gradle/libs.versions.toml b/gradle/libs.versions.toml
+--- a/gradle/libs.versions.toml	(revision 11a078b248ece6957bbcdf2e1bc7cc404ddaa46f)
++++ b/gradle/libs.versions.toml	(date 1715517955173)
+@@ -3,6 +3,7 @@
+ # Plugins
+ kotlin = "1.9.23"
+ android_gradle_plugin = "8.3.2"
++kotlinxSerializationJson = "1.6.3"
+ ksp-plugin = "1.9.23-1.0.20"
+ 
+ #Hilt
+@@ -26,7 +27,7 @@
+ coroutines_version = "1.7.3"
+ 
+ # Navigation
+-navigation_version = "2.7.7"
++navigation_version = "2.8.0-alpha08"
+ 
+ # Others
+ lottie_version = "6.4.0"
+@@ -55,6 +56,7 @@
+ #kotlin
+ org-jetbrains-kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+ org-jetbrains-kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
++org-jetbrains-kotlin-serializable = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+ #hilt
+ com-google-dagger-hilt-android = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
+ com-google-devtools-ksp = { id = "com.google.devtools.ksp", version.ref = "ksp-plugin" }
+@@ -81,6 +83,7 @@
+ compose_paging = { module = "androidx.paging:paging-compose", version.ref = "compose_paging" }
+ constraintlayout_compose = { module = "androidx.constraintlayout:constraintlayout-compose", version.ref = "constraintlayout_compose" }
+ 
++kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinxSerializationJson" }
+ lottie_compose = { module = "com.airbnb.android:lottie-compose", version.ref = "lottie_version" }
+ navigation_compose = { module = "androidx.navigation:navigation-compose", version.ref = "navigation_version" }
+ navigation_fragment_ktx = { module = "androidx.navigation:navigation-fragment-ktx", version.ref = "navigation_version" }
+Index: app/build.gradle
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>plugins {\r\n    //android\r\n    alias libs.plugins.com.android.application\r\n    //jetbrains\r\n    alias libs.plugins.org.jetbrains.kotlin.android\r\n    //Hilt\r\n    alias libs.plugins.com.google.devtools.ksp\r\n    alias libs.plugins.com.google.dagger.hilt.android\r\n}\r\n\r\nandroid {\r\n    compileSdk 34\r\n\r\n    namespace 'com.amarchaud.lydia'\r\n\r\n    buildFeatures {\r\n        buildConfig = true\r\n    }\r\n\r\n    defaultConfig {\r\n        applicationId \"com.amarchaud.lydia\"\r\n        minSdk 29\r\n        targetSdk 34\r\n        versionCode 1\r\n        versionName \"1.0\"\r\n\r\n        testInstrumentationRunner \"androidx.test.runner.AndroidJUnitRunner\"\r\n        vectorDrawables {\r\n            useSupportLibrary true\r\n        }\r\n    }\r\n\r\n    buildTypes {\r\n        release {\r\n            minifyEnabled false\r\n            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'\r\n        }\r\n    }\r\n    compileOptions {\r\n        sourceCompatibility JavaVersion.VERSION_17.toString()\r\n        targetCompatibility JavaVersion.VERSION_17.toString()\r\n\r\n        kotlin.sourceSets.configureEach {\r\n            languageSettings.optIn(\"kotlin.RequiresOptIn\")\r\n        }\r\n    }\r\n    kotlinOptions {\r\n        jvmTarget = JavaVersion.VERSION_17.toString()\r\n    }\r\n    buildFeatures {\r\n        compose true\r\n    }\r\n    composeOptions {\r\n        kotlinCompilerExtensionVersion libs.versions.compose.compiler.get()\r\n    }\r\n    packagingOptions {\r\n        resources {\r\n            excludes += '/META-INF/{AL2.0,LGPL2.1}'\r\n        }\r\n    }\r\n    testOptions {\r\n        unitTests.returnDefaultValues = true\r\n    }\r\n}\r\n\r\ndependencies {\r\n    //Hilt\r\n    implementation(libs.hilt.android)\r\n    implementation(libs.bundles.hilt.androidx)\r\n    ksp(libs.hiltCompiler)\r\n\r\n    // Compose\r\n    implementation platform(libs.compose.bom)\r\n    implementation libs.bundles.compose\r\n    implementation libs.bundles.accompanist\r\n    implementation libs.lottie.compose\r\n\r\n    // Navigation\r\n    implementation libs.bundles.navigation\r\n\r\n    // Ktx\r\n    implementation libs.activity.ktx\r\n    implementation libs.core.ktx\r\n    implementation libs.fragment.ktx\r\n\r\n    // retrofit\r\n    implementation libs.bundles.api\r\n    ksp(libs.moshiCodeGen)\r\n\r\n    // room\r\n    implementation libs.bundles.room\r\n    ksp(libs.roomCompiler)\r\n\r\n    // image\r\n    implementation libs.coil\r\n\r\n    // maps\r\n    implementation libs.osmdroid\r\n\r\n    // test\r\n    implementation libs.bundles.test\r\n}
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/app/build.gradle b/app/build.gradle
+--- a/app/build.gradle	(revision 11a078b248ece6957bbcdf2e1bc7cc404ddaa46f)
++++ b/app/build.gradle	(date 1715517972887)
+@@ -3,6 +3,7 @@
+     alias libs.plugins.com.android.application
+     //jetbrains
+     alias libs.plugins.org.jetbrains.kotlin.android
++    alias libs.plugins.org.jetbrains.kotlin.serializable
+     //Hilt
+     alias libs.plugins.com.google.devtools.ksp
+     alias libs.plugins.com.google.dagger.hilt.android
+@@ -99,4 +100,7 @@
+ 
+     // test
+     implementation libs.bundles.test
++
++    // toto
++    implementation libs.kotlinx.serialization.json
+ }
+\ No newline at end of file
+Index: build.gradle
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>// Top-level build file where you can add configuration options common to all sub-projects/modules.\r\nplugins {\r\n    //android\r\n    alias libs.plugins.com.android.application apply false\r\n    alias libs.plugins.com.android.library apply false\r\n    //jetbrains\r\n    alias libs.plugins.org.jetbrains.kotlin.jvm apply false\r\n    alias libs.plugins.org.jetbrains.kotlin.android apply false\r\n    //Hilt\r\n    alias libs.plugins.com.google.devtools.ksp apply false\r\n    alias libs.plugins.com.google.dagger.hilt.android apply false\r\n    id 'version-catalog'\r\n}\r\n\r\ntasks.register('clean', Delete) {\r\n    delete rootProject.buildDir\r\n}\r\n\r\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/build.gradle b/build.gradle
+--- a/build.gradle	(revision 11a078b248ece6957bbcdf2e1bc7cc404ddaa46f)
++++ b/build.gradle	(date 1715517972885)
+@@ -6,6 +6,7 @@
+     //jetbrains
+     alias libs.plugins.org.jetbrains.kotlin.jvm apply false
+     alias libs.plugins.org.jetbrains.kotlin.android apply false
++    alias libs.plugins.org.jetbrains.kotlin.serializable apply false
+     //Hilt
+     alias libs.plugins.com.google.devtools.ksp apply false
+     alias libs.plugins.com.google.dagger.hilt.android apply false
